@@ -6,7 +6,6 @@ import (
 	"regexp"
 
 	"github.com/spf13/cobra"
-	// 読み込んだパッケージ
 	"github.com/ksaegusa/netcfgdiff/pkg/netcfgdiff"
 )
 
@@ -33,14 +32,12 @@ func main() {
 				ignoreRegexps = append(ignoreRegexps, re)
 			}
 
-			// ▼ 修正: netcfgdiff.ParseFile に変更
 			runningNodes, err := netcfgdiff.ParseFile(fileRunning, ignoreRegexps)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error parsing running: %v\n", err)
 				os.Exit(1)
 			}
 
-			// ▼ 修正: netcfgdiff.ParseFile に変更
 			candidateNodes, err := netcfgdiff.ParseFile(fileCandidate, ignoreRegexps)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error parsing candidate: %v\n", err)
@@ -49,7 +46,6 @@ func main() {
 
 			// ターゲットフィルタリング
 			if targetFlag != "" {
-				// ▼ 修正: netcfgdiff.FilterNodes に変更
 				runningNodes = netcfgdiff.FilterNodes(runningNodes, targetFlag)
 				candidateNodes = netcfgdiff.FilterNodes(candidateNodes, targetFlag)
 
@@ -60,7 +56,6 @@ func main() {
 
 			// 比較実行
 			fmt.Println("--- Diff Start ---")
-			// ▼ 修正: netcfgdiff.DiffConfig に変更
 			netcfgdiff.DiffConfig(os.Stdout, runningNodes, candidateNodes, 0)
 			fmt.Println("--- Diff End ---")
 		},

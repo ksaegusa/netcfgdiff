@@ -19,7 +19,6 @@ interface Gi1
 interface Gi1
  description Added
 `
-	// 修正: 第2引数に nil を渡す
 	running, _ := Parse(oldCfg, nil)
 	candidate, _ := Parse(newCfg, nil)
 
@@ -46,7 +45,6 @@ router bgp 100
 	newCfg := `
 router bgp 100
 `
-	// 修正: 第2引数に nil を渡す
 	running, _ := Parse(oldCfg, nil)
 	candidate, _ := Parse(newCfg, nil)
 
