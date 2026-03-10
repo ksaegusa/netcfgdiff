@@ -4,7 +4,7 @@
 
 本ツールは、Cisco IOS等のネットワーク機器のコンフィグレーションファイル（Running Config と Candidate Config）を比較し、その差分を**階層構造（コンテキスト）を維持した状態で**表示するCLIアプリケーションである。
 
-Unix標準の `diff` コマンドとは異なり、インデントによる親子関係を解釈する。また、不要な行の除外や特定のブロックのみの比較など、ネットワーク運用の実態に即したフィルタリング機能を持つ。
+Unix標準の `diff` コマンドとは異なり、インデントによる親子関係を解釈する。また、不要な行の除外、正規表現による置換、特定のブロックのみの比較など、ネットワーク運用の実態に即したフィルタリング機能を持つ。
 
 ## 2. システム構成 (Architecture)
 
@@ -20,6 +20,7 @@ Go言語によるシングルバイナリとして実装する。
 
 * **CLIフレームワーク:** `github.com/spf13/cobra`
 * **色出力:** `github.com/fatih/color`
+* **YAML:** `gopkg.in/yaml.v3`
 * **テスト:** Go標準 `testing` パッケージ
 
 ---
@@ -33,6 +34,7 @@ Go言語によるシングルバイナリとして実装する。
 
 2. **フィルタリング機能 (Filtering)**
 * **除外 (Ignore):** ユーザーが指定した正規表現（複数指定可）にマッチする行を、パース段階で除外する（例: `ntp clock-period`, `Last configuration change`）。
+* **置換 (Replace):** ユーザーが指定した正規表現ルールで行内容を正規化してから比較する（例: 日付、IPアドレス、生成IDのマスキング）。
 * **ターゲット抽出 (Target Scope):** 指定された文字列（例: `router ospf`）で始まるブロックのみを抽出し、比較対象とする。
 
 
@@ -46,6 +48,8 @@ Go言語によるシングルバイナリとして実装する。
 4. **CLI機能**
 * `netcfgdiff <old_file> <new_file>` (ルートコマンド)
 * フラグ `--ignore` (`-i`): 無視する正規表現パターン（複数可）。
+* フラグ `--replace` (`-r`): `pattern=replacement` 形式の置換ルール（複数可）。
+* フラグ `--profile` (`-p`): `ignore` / `replace` を定義した YAML プロファイル。
 * フラグ `--target` (`-t`): 比較対象とするブロックのプレフィックス。
 
 
@@ -75,13 +79,16 @@ type ConfigNode struct {
 テキストデータを読み込み、フィルタリングを適用しつつツリー構造へ変換する。
 
 * **主な関数:**
-* `Parse(rawConfig string, ignorePatterns []*regexp.Regexp)`:
+* `Parse(rawConfig string, options ParseOptions)`:
 * 文字列を行単位でスキャンする。
-* `ignorePatterns` のいずれかにマッチした行はスキップする。
+* `options.IgnorePatterns` のいずれかにマッチした行はスキップする。
+* `options.ReplaceRules` を上から順に適用して行を正規化する。
 * インデント解析を行いツリーを構築する。
 
 
 * `ParseFile(...)`: ファイル読み込みラッパー。
+* `LoadProfile(...)`: YAML プロファイル読み込み。
+* `CompileReplaceRules(...)`: 置換用正規表現の事前コンパイル。
 * `FilterNodes(nodes []*ConfigNode, target string)`:
 * 構築されたツリーから、`Line` が `target` 文字列で始まるノード（およびその子孫）のみを抽出して新しいスライスを返す。
 
@@ -105,6 +112,7 @@ type ConfigNode struct {
 ### 5.3 CLI Controller (`main.go`)
 
 * `cobra` を使用した引数・フラグのパース。
+* YAML プロファイル読み込み、ignore/replace ルールのマージ。
 * 正規表現のコンパイル（エラー時は即終了）。
 * Parse -> Filter -> Diff の順で処理をオーケストレーションする。
 
@@ -146,6 +154,5 @@ graph TD
 
 ### 7.2 将来の拡張 (Future Roadmap)
 
-1. **設定ファイル対応:** 無視リストやターゲット設定を YAML ファイル等から読み込む機能。
-2. **Strict Mode:** 特定ブロック（ACL等）に対する順序厳密比較の実装。
-3. **Config生成機能:** 差分から実機投入用コマンド（`no` 付き）を生成する機能。
+1. **Strict Mode:** 特定ブロック（ACL等）に対する順序厳密比較の実装。
+2. **Config生成機能:** 差分から実機投入用コマンド（`no` 付き）を生成する機能。

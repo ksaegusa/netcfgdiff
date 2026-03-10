@@ -19,8 +19,8 @@ interface Gi1
 interface Gi1
  description Added
 `
-	running, _ := Parse(oldCfg, nil)
-	candidate, _ := Parse(newCfg, nil)
+	running, _ := Parse(oldCfg, ParseOptions{})
+	candidate, _ := Parse(newCfg, ParseOptions{})
 
 	var buf bytes.Buffer
 	DiffConfig(&buf, running, candidate, 0)
@@ -45,8 +45,8 @@ router bgp 100
 	newCfg := `
 router bgp 100
 `
-	running, _ := Parse(oldCfg, nil)
-	candidate, _ := Parse(newCfg, nil)
+	running, _ := Parse(oldCfg, ParseOptions{})
+	candidate, _ := Parse(newCfg, ParseOptions{})
 
 	var buf bytes.Buffer
 	DiffConfig(&buf, running, candidate, 0)
@@ -54,5 +54,37 @@ router bgp 100
 
 	if !strings.Contains(output, "- neighbor 1.1.1.1") {
 		t.Error("Output should contain removed line '- neighbor 1.1.1.1'")
+	}
+}
+
+func TestDiffConfig_IgnoresNormalizedDifferences(t *testing.T) {
+	color.NoColor = true
+	defer func() { color.NoColor = false }()
+
+	oldCfg := `
+interface Gi1
+ description Last changed 2026-03-10
+`
+	newCfg := `
+interface Gi1
+ description Last changed 2026-03-11
+`
+
+	rules, err := CompileReplaceRules([]ReplaceRule{
+		{Pattern: `\d{4}-\d{2}-\d{2}`, Replacement: "<date>"},
+	})
+	if err != nil {
+		t.Fatalf("CompileReplaceRules failed: %v", err)
+	}
+
+	options := ParseOptions{ReplaceRules: rules}
+	running, _ := Parse(oldCfg, options)
+	candidate, _ := Parse(newCfg, options)
+
+	var buf bytes.Buffer
+	DiffConfig(&buf, running, candidate, 0)
+
+	if output := buf.String(); output != "" {
+		t.Fatalf("Expected no diff after normalization, got %q", output)
 	}
 }

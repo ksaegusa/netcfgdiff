@@ -11,6 +11,7 @@ Unlike standard Unix `diff`, `netcfgdiff` understands the hierarchical structure
 * **Context-Aware Diff:** Detects parent-child relationships using indentation. If a child line changes, the parent line is displayed for context.
 * **Colorized Output:** Clearly highlights additions (green) and removals (red).
 * **Ignore Noise:** Filter out irrelevant lines (e.g., timestamps, encrypted passwords) using regex.
+* **Normalize Differences:** Replace volatile values with regex-based rewrite rules before diffing.
 * **Target Scope:** Focus comparison on specific blocks (e.g., `router ospf`) and ignore the rest.
 * **Single Binary:** Easy to distribute to bastion hosts or servers without Python dependencies.
 
@@ -35,6 +36,8 @@ Basic comparison between running config and candidate config:
 | Flag | Description |
 | --- | --- |
 | `-i`, `--ignore` | Regex pattern to ignore lines (can be used multiple times). |
+| `-r`, `--replace` | Regex rewrite rule in `pattern=replacement` form (can be used multiple times). |
+| `-p`, `--profile` | YAML profile file containing `ignore` and `replace` rules. |
 | `-t`, `--target` | Target block prefix to limit the scope of comparison. |
 | `-h`, `--help` | Help for netcfgdiff. |
 
@@ -50,6 +53,33 @@ Basic comparison between running config and candidate config:
 
 ```bash
 ./netcfgdiff old.conf new.conf --target "router ospf"
+```
+
+**3. Normalize volatile values from the CLI:**
+
+```bash
+./netcfgdiff old.conf new.conf \
+  --replace '[0-9]{4}-[0-9]{2}-[0-9]{2}=<date>' \
+  --replace '10\.0\.0\.[0-9]+=<ip>'
+```
+
+**4. Load ignore/replace rules from a YAML profile:**
+
+```bash
+./netcfgdiff old.conf new.conf --profile profile.yaml
+```
+
+Example `profile.yaml`:
+
+```yaml
+ignore:
+  - "^ntp clock-period"
+  - "^! Last configuration"
+replace:
+  - pattern: "[0-9]{4}-[0-9]{2}-[0-9]{2}"
+    replacement: "<date>"
+  - pattern: "10\\.0\\.0\\.[0-9]+"
+    replacement: "<ip>"
 ```
 
 ## Output Example
