@@ -16,6 +16,44 @@ Unlike standard Unix `diff`, `netcfgdiff` understands the hierarchical structure
 * **Single Binary:** Easy to distribute to bastion hosts or servers without Python dependencies.
 
 ## Installation
+### From Releases
+
+Download the binary that matches your environment from the GitHub Releases page and place it somewhere in your `PATH`.
+
+Common targets:
+
+| Platform | Binary |
+| --- | --- |
+| Linux x86_64 | `netcfgdiff-linux-amd64` |
+| Linux ARM64 / Raspberry Pi 64-bit | `netcfgdiff-linux-arm64` |
+| Linux ARM 32-bit | `netcfgdiff-linux-arm` |
+| macOS Intel | `netcfgdiff-darwin-amd64` |
+| macOS Apple Silicon | `netcfgdiff-darwin-arm64` |
+| Windows x86_64 | `netcfgdiff-windows-amd64.exe` |
+
+Linux / macOS example:
+
+```bash
+chmod +x netcfgdiff-darwin-arm64
+sudo mv netcfgdiff-darwin-arm64 /usr/local/bin/netcfgdiff
+netcfgdiff --help
+```
+
+If you are not sure which architecture you need:
+
+```bash
+uname -s
+uname -m
+```
+
+Typical output mapping:
+
+* `Linux` + `x86_64` -> `netcfgdiff-linux-amd64`
+* `Linux` + `aarch64` -> `netcfgdiff-linux-arm64`
+* `Linux` + `armv7l` / `armv6l` -> `netcfgdiff-linux-arm`
+* `Darwin` + `x86_64` -> `netcfgdiff-darwin-amd64`
+* `Darwin` + `arm64` -> `netcfgdiff-darwin-arm64`
+
 ### From Source
 
 ```bash

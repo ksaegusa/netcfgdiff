@@ -30,9 +30,17 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos:
-          - linux
-          - windows
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
 
     steps:
       - name: Checkout
@@ -46,7 +54,7 @@ jobs:
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}
-          GOARCH: amd64
+          GOARCH: ${{ matrix.goarch }}
         run: go build ./cmd/netcfgdiff
 
   release-artifacts:
@@ -58,9 +66,23 @@ jobs:
       matrix:
         include:
           - goos: linux
+            goarch: amd64
             binary_name: netcfgdiff-linux-amd64
+          - goos: linux
+            goarch: arm64
+            binary_name: netcfgdiff-linux-arm64
+          - goos: linux
+            goarch: arm
+            binary_name: netcfgdiff-linux-arm
           - goos: windows
+            goarch: amd64
             binary_name: netcfgdiff-windows-amd64.exe
+          - goos: darwin
+            goarch: amd64
+            binary_name: netcfgdiff-darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            binary_name: netcfgdiff-darwin-arm64
 
     steps:
       - name: Checkout
@@ -74,7 +96,7 @@ jobs:
       - name: Build release binary
         env:
           GOOS: ${{ matrix.goos }}
-          GOARCH: amd64
+          GOARCH: ${{ matrix.goarch }}
         run: go build -o ${{ matrix.binary_name }} ./cmd/netcfgdiff
 
       - name: Create release if missing

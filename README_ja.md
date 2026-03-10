@@ -1,5 +1,51 @@
 # 基本設計書: Network Config Diff Tool (Go) - Rev 1.2
 
+## 利用者向けインストール手順
+
+GitHub Releases から環境に合ったバイナリを取得し、実行可能にして `PATH` の通った場所へ置けば使える。
+
+代表的な配布物は以下。
+
+| 環境 | バイナリ名 |
+| --- | --- |
+| Linux x86_64 | `netcfgdiff-linux-amd64` |
+| Linux ARM64 / Raspberry Pi 64bit | `netcfgdiff-linux-arm64` |
+| Linux ARM 32bit | `netcfgdiff-linux-arm` |
+| macOS Intel | `netcfgdiff-darwin-amd64` |
+| macOS Apple Silicon | `netcfgdiff-darwin-arm64` |
+| Windows x86_64 | `netcfgdiff-windows-amd64.exe` |
+
+Linux / macOS の例:
+
+```bash
+chmod +x netcfgdiff-darwin-arm64
+sudo mv netcfgdiff-darwin-arm64 /usr/local/bin/netcfgdiff
+netcfgdiff --help
+```
+
+どのバイナリを使うべきか不明な場合は、まず環境を確認する。
+
+```bash
+uname -s
+uname -m
+```
+
+対応関係:
+
+* `Linux` + `x86_64` -> `netcfgdiff-linux-amd64`
+* `Linux` + `aarch64` -> `netcfgdiff-linux-arm64`
+* `Linux` + `armv7l` / `armv6l` -> `netcfgdiff-linux-arm`
+* `Darwin` + `x86_64` -> `netcfgdiff-darwin-amd64`
+* `Darwin` + `arm64` -> `netcfgdiff-darwin-arm64`
+
+ソースからビルドする場合:
+
+```bash
+git clone https://github.com/ksaegusa/netcfgdiff.git
+cd netcfgdiff
+go build -o netcfgdiff ./cmd/netcfgdiff
+```
+
 ## 1. 概要 (Overview)
 
 本ツールは、Cisco IOS等のネットワーク機器のコンフィグレーションファイル（Running Config と Candidate Config）を比較し、その差分を**階層構造（コンテキスト）を維持した状態で**表示するCLIアプリケーションである。
