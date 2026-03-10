@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/ksaegusa/netcfgdiff/pkg/netcfgdiff"
+	"github.com/spf13/cobra"
 )
 
 func main() {
 	var ignoreFlags []string
+	var replaceFlags []string
+	var profileFlag string
 	var targetFlag string
 
 	var rootCmd = &cobra.Command{
@@ -21,9 +24,32 @@ func main() {
 			fileRunning := args[0]
 			fileCandidate := args[1]
 
-			// 正規表現のコンパイル
+			var ignoreSources []string
+			var replaceSources []netcfgdiff.ReplaceRule
+
+			if profileFlag != "" {
+				profile, err := netcfgdiff.LoadProfile(profileFlag)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Error loading profile: %v\n", err)
+					os.Exit(1)
+				}
+				ignoreSources = append(ignoreSources, profile.Ignore...)
+				replaceSources = append(replaceSources, profile.Replace...)
+			}
+
+			ignoreSources = append(ignoreSources, ignoreFlags...)
+
+			for _, raw := range replaceFlags {
+				rule, err := parseReplaceFlag(raw)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Invalid replace rule '%s': %v\n", raw, err)
+					os.Exit(1)
+				}
+				replaceSources = append(replaceSources, rule)
+			}
+
 			var ignoreRegexps []*regexp.Regexp
-			for _, pattern := range ignoreFlags {
+			for _, pattern := range ignoreSources {
 				re, err := regexp.Compile(pattern)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "Invalid regex '%s': %v\n", pattern, err)
@@ -32,13 +58,24 @@ func main() {
 				ignoreRegexps = append(ignoreRegexps, re)
 			}
 
-			runningNodes, err := netcfgdiff.ParseFile(fileRunning, ignoreRegexps)
+			replaceRules, err := netcfgdiff.CompileReplaceRules(replaceSources)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Invalid replace rules: %v\n", err)
+				os.Exit(1)
+			}
+
+			options := netcfgdiff.ParseOptions{
+				IgnorePatterns: ignoreRegexps,
+				ReplaceRules:   replaceRules,
+			}
+
+			runningNodes, err := netcfgdiff.ParseFile(fileRunning, options)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error parsing running: %v\n", err)
 				os.Exit(1)
 			}
 
-			candidateNodes, err := netcfgdiff.ParseFile(fileCandidate, ignoreRegexps)
+			candidateNodes, err := netcfgdiff.ParseFile(fileCandidate, options)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error parsing candidate: %v\n", err)
 				os.Exit(1)
@@ -62,10 +99,23 @@ func main() {
 	}
 
 	rootCmd.Flags().StringArrayVarP(&ignoreFlags, "ignore", "i", []string{}, "Regex pattern to ignore lines")
+	rootCmd.Flags().StringArrayVarP(&replaceFlags, "replace", "r", []string{}, "Regex replacement rule in pattern=replacement form")
+	rootCmd.Flags().StringVarP(&profileFlag, "profile", "p", "", "YAML profile with ignore and replace rules")
 	rootCmd.Flags().StringVarP(&targetFlag, "target", "t", "", "Target block prefix to compare")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+}
+
+func parseReplaceFlag(raw string) (netcfgdiff.ReplaceRule, error) {
+	pattern, replacement, found := strings.Cut(raw, "=")
+	if !found || pattern == "" {
+		return netcfgdiff.ReplaceRule{}, fmt.Errorf("expected pattern=replacement")
+	}
+	return netcfgdiff.ReplaceRule{
+		Pattern:     pattern,
+		Replacement: replacement,
+	}, nil
 }

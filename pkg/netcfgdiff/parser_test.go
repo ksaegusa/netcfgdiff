@@ -1,6 +1,8 @@
 package netcfgdiff
 
 import (
+	"os"
+	"path/filepath"
 	"regexp"
 	"testing"
 )
@@ -15,7 +17,7 @@ interface Gi1
 router bgp 100
 `
 	// 第2引数に nil (無視リストなし) を渡す
-	nodes, err := Parse(input, nil)
+	nodes, err := Parse(input, ParseOptions{})
 	if err != nil {
 		t.Fatalf("Parse failed: %v", err)
 	}
@@ -41,7 +43,7 @@ func TestParse_IgnoreComments(t *testing.T) {
 valid line
   ! indented comment
 `
-	nodes, _ := Parse(input, nil)
+	nodes, _ := Parse(input, ParseOptions{})
 	if len(nodes) != 1 {
 		t.Errorf("Should parse only 1 valid line, got %d", len(nodes))
 	}
@@ -61,7 +63,7 @@ interface Gi1
 		regexp.MustCompile(`Last config`),
 	}
 
-	nodes, err := Parse(input, ignorePatterns)
+	nodes, err := Parse(input, ParseOptions{IgnorePatterns: ignorePatterns})
 	if err != nil {
 		t.Fatalf("Parse failed: %v", err)
 	}
@@ -71,7 +73,7 @@ interface Gi1
 	if len(nodes) != 1 {
 		t.Fatalf("Expected 1 top-level node, got %d", len(nodes))
 	}
-	
+
 	children := nodes[0].Children
 	if len(children) != 1 {
 		t.Fatalf("Expected 1 child node, got %d", len(children))
@@ -94,7 +96,7 @@ router bgp 65000
 router ospf 1
  network 0.0.0.0 255.255.255.255 area 0
 `
-	nodes, _ := Parse(input, nil) // 全パース
+	nodes, _ := Parse(input, ParseOptions{}) // 全パース
 
 	// ケース1: "router bgp" だけ抽出
 	filtered := FilterNodes(nodes, "router bgp")
@@ -115,5 +117,55 @@ router ospf 1
 	all := FilterNodes(nodes, "")
 	if len(all) != 3 {
 		t.Errorf("Expected all 3 nodes, got %d", len(all))
+	}
+}
+
+func TestParse_WithReplace(t *testing.T) {
+	input := `
+interface Gi1
+ description Last changed 2026-03-10
+ ip address 10.0.0.1 255.255.255.0
+`
+
+	rules, err := CompileReplaceRules([]ReplaceRule{
+		{Pattern: `\d{4}-\d{2}-\d{2}`, Replacement: "<date>"},
+		{Pattern: `10\.0\.0\.1`, Replacement: "<ip>"},
+	})
+	if err != nil {
+		t.Fatalf("CompileReplaceRules failed: %v", err)
+	}
+
+	nodes, err := Parse(input, ParseOptions{ReplaceRules: rules})
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	if got := nodes[0].Children[0].Line; got != "description Last changed <date>" {
+		t.Fatalf("Unexpected normalized description: %s", got)
+	}
+	if got := nodes[0].Children[1].Line; got != "ip address <ip> 255.255.255.0" {
+		t.Fatalf("Unexpected normalized IP line: %s", got)
+	}
+}
+
+func TestLoadProfile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "profile.yaml")
+	content := []byte("ignore:\n  - '^ntp clock-period'\nreplace:\n  - pattern: '\\d+'\n    replacement: '<num>'\n")
+
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatalf("WriteFile failed: %v", err)
+	}
+
+	profile, err := LoadProfile(path)
+	if err != nil {
+		t.Fatalf("LoadProfile failed: %v", err)
+	}
+
+	if len(profile.Ignore) != 1 || profile.Ignore[0] != "^ntp clock-period" {
+		t.Fatalf("Unexpected ignore profile: %#v", profile.Ignore)
+	}
+	if len(profile.Replace) != 1 || profile.Replace[0].Pattern != `\d+` || profile.Replace[0].Replacement != "<num>" {
+		t.Fatalf("Unexpected replace profile: %#v", profile.Replace)
 	}
 }
